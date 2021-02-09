@@ -25,14 +25,14 @@ typedef struct {
   uint32_t chunk_size;
   uint32_t lookahead_size;
 
-  TSInput input;
+  TSInputWithEncoding input;
   TSLogger logger;
   char debug_buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE];
 } Lexer;
 
 void ts_lexer_init(Lexer *);
 void ts_lexer_delete(Lexer *);
-void ts_lexer_set_input(Lexer *, TSInput);
+void ts_lexer_set_input(Lexer *, TSInputWithEncoding);
 void ts_lexer_reset(Lexer *, Length);
 void ts_lexer_start(Lexer *);
 void ts_lexer_finish(Lexer *, uint32_t *);

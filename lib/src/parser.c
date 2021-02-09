@@ -18,6 +18,7 @@
 #include "./stack.h"
 #include "./subtree.h"
 #include "./tree.h"
+#include "./unicode.h"
 
 #define LOG(...)                                                                            \
   if (self->lexer.logger.log || self->dot_graph_file) {                                     \
@@ -1811,6 +1812,20 @@ TSTree *ts_parser_parse(
   TSParser *self,
   const TSTree *old_tree,
   TSInput input
+) {
+  TSInputWithEncoding input_with_encoding;
+  input_with_encoding.payload = input.payload;
+  input_with_encoding.read = input.read;
+  input_with_encoding.decode_function =
+    input.encoding == TSInputEncodingUTF8 ? ts_decode_utf8 : ts_decode_utf16;
+
+  return ts_parser_parse_with_encoding(self, old_tree, input_with_encoding);
+}
+
+TSTree *ts_parser_parse_with_encoding(
+  TSParser *self,
+  const TSTree *old_tree,
+  TSInputWithEncoding input
 ) {
   if (!self->language || !input.read) return NULL;
 

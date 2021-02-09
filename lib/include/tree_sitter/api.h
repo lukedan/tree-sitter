@@ -41,6 +41,8 @@ typedef struct TSTree TSTree;
 typedef struct TSQuery TSQuery;
 typedef struct TSQueryCursor TSQueryCursor;
 
+#define TS_DECODE_ERROR (-1)
+
 typedef enum {
   TSInputEncodingUTF8,
   TSInputEncodingUTF16,
@@ -64,11 +66,30 @@ typedef struct {
   uint32_t end_byte;
 } TSRange;
 
+typedef const char *(*TSReadFunction)(
+  void *payload,
+  uint32_t byte_index,
+  TSPoint position,
+  uint32_t *bytes_read
+);
+
+typedef uint32_t (*TSUnicodeDecodeFunction)(
+  const uint8_t *string,
+  uint32_t length,
+  int32_t *code_point
+);
+
 typedef struct {
   void *payload;
-  const char *(*read)(void *payload, uint32_t byte_index, TSPoint position, uint32_t *bytes_read);
+  TSReadFunction read;
   TSInputEncoding encoding;
 } TSInput;
+
+typedef struct {
+  void *payload;
+  TSReadFunction read;
+  TSUnicodeDecodeFunction decode_function;
+} TSInputWithEncoding;
 
 typedef enum {
   TSLogTypeParse,
@@ -218,10 +239,10 @@ const TSRange *ts_parser_included_ranges(
  *
  * The `TSInput` parameter lets you specify how to read the text. It has the
  * following three fields:
- * 1. `read`: A function to retrieve a chunk of text at a given byte offset
- *    and (row, column) position. The function should return a pointer to the
- *    text and write its length to the `bytes_read` pointer. The parser does
- *    not take ownership of this buffer; it just borrows it until it has
+ * 1. `read`: A `TSReadFunction` to retrieve a chunk of text at a given byte
+ *    offset and (row, column) position. The function should return a pointer
+ *    to the text and write its length to the `bytes_read` pointer. The parser
+ *    does not take ownership of this buffer; it just borrows it until it has
  *    finished reading it. The function should write a zero value to the
  *    `bytes_read` pointer to indicate the end of the document.
  * 2. `payload`: An arbitrary pointer that will be passed to each invocation
@@ -247,6 +268,25 @@ TSTree *ts_parser_parse(
   TSParser *self,
   const TSTree *old_tree,
   TSInput input
+);
+
+/**
+ * Similar to `ts_parser_parse`, but this function allows the user to use a
+ * custom callback function to decode the contents.
+ *
+ * The `decode_function` field of the `TSInputWithEncoding` parameter takes a
+ * buffer and its length as input, stores the decoded Unicode codepoint
+ * into the third `int32_t` parameter, and returns the number of bytes
+ * consumed. It should start decoding from the beginning of the buffer and not
+ * read past the end of it - the lexer will adjust the beginning position of
+ * the buffer before calling this function. If decoding fails, the function
+ * should store `TS_DECODE_ERROR` as the result and return the number of
+ * invalid bytes consumed (normally the size of a word).
+ */
+TSTree *ts_parser_parse_with_encoding(
+  TSParser *self,
+  const TSTree *old_tree,
+  TSInputWithEncoding input
 );
 
 /**

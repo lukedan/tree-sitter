@@ -82,11 +82,9 @@ static void ts_lexer__get_lookahead(Lexer *self) {
   }
 
   const uint8_t *chunk = (const uint8_t *)self->chunk + position_in_chunk;
-  UnicodeDecodeFunction decode = self->input.encoding == TSInputEncodingUTF8
-    ? ts_decode_utf8
-    : ts_decode_utf16;
-
-  self->lookahead_size = decode(chunk, size, &self->data.lookahead);
+  self->lookahead_size = self->input.decode_function(
+    chunk, size, &self->data.lookahead
+  );
 
   // If this chunk ended in the middle of a multi-byte character,
   // try again with a fresh chunk.
@@ -94,7 +92,9 @@ static void ts_lexer__get_lookahead(Lexer *self) {
     ts_lexer__get_chunk(self);
     chunk = (const uint8_t *)self->chunk;
     size = self->chunk_size;
-    self->lookahead_size = decode(chunk, size, &self->data.lookahead);
+    self->lookahead_size = self->input.decode_function(
+      chunk, size, &self->data.lookahead
+    );
   }
 
   if (self->data.lookahead == TS_DECODE_ERROR) {
@@ -297,7 +297,7 @@ static void ts_lexer_goto(Lexer *self, Length position) {
   }
 }
 
-void ts_lexer_set_input(Lexer *self, TSInput input) {
+void ts_lexer_set_input(Lexer *self, TSInputWithEncoding input) {
   self->input = input;
   ts_lexer__clear_chunk(self);
   ts_lexer_goto(self, self->current_position);
